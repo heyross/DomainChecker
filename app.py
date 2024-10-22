@@ -2,6 +2,10 @@ import openai
 from flask import Flask, request, jsonify
 import whois
 import os
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 
@@ -23,12 +27,13 @@ def check_whois(domain):
         if domain_info['domain_name']:
             return 'Registered'
     except Exception as e:
-        # Handle WHOIS exceptions
-        print(f"Error checking WHOIS for {domain}: {e}")
+        logging.error(f"Error checking WHOIS for {domain}: {e}")
         return 'Error'
     return 'Available'
 
 def generate_company_names(description):
+    logging.info(f"Received prompt for description: {description}")
+
     # Define the prompt that will be passed to GPT-4
     prompt = f"""
     Generate a set of company name candidates that evoke a symbolic connection and fit Latin/Germanic language structures, inspired by literature or other symbolic sources (such as a Bible verse where God tracks every sparrow, but avoid using 'sparrow'). The company develops a software platform that tracks every learning and delivery event for an extended team, building profiles to assign the right person to the right job in projects. Prioritize one-word names that are imaginative, memorable, and suggest leadership, knowledge, guidance, or skill mastery. The names should also have high potential for driving traffic if available as .com domain names. Examples include names like 'Vigil' for watchfulness or 'Lumen' for enlightenment. Output the names in a Python list format, for example: names = ['example', 'testdomain', 'mywebsite'].
@@ -45,22 +50,19 @@ def generate_company_names(description):
         # Extract the generated Python list from the response
         generated_text = response.choices[0].text.strip()
         exec(generated_text, globals())
+        logging.info(f"Generated names: {names}")
         return names  # Return the generated list of names
     except openai.error.InvalidRequestError as e:
-        # Handle invalid request errors from OpenAI
-        print(f"OpenAI API Invalid Request Error: {e}")
+        logging.error(f"OpenAI API Invalid Request Error: {e}")
         return None, "There was an issue with the OpenAI request. Please check the prompt and ensure it is correctly formatted."
     except openai.error.AuthenticationError as e:
-        # Handle authentication errors from OpenAI
-        print(f"OpenAI API Authentication Error: {e}")
+        logging.error(f"OpenAI API Authentication Error: {e}")
         return None, "Authentication with the OpenAI API failed. Please ensure that the OpenAI API key is correctly set and valid."
     except openai.error.RateLimitError as e:
-        # Handle rate limit errors from OpenAI
-        print(f"OpenAI API Rate Limit Error: {e}")
+        logging.error(f"OpenAI API Rate Limit Error: {e}")
         return None, "The OpenAI API rate limit has been exceeded. Please try again later or reduce the frequency of requests."
     except Exception as e:
-        # Handle any other exceptions
-        print(f"General Error in OpenAI API call: {e}")
+        logging.error(f"General Error in OpenAI API call: {e}")
         return None, "An unexpected error occurred when calling the OpenAI API. Please try again later or contact support."
 
 @app.route('/generate_names', methods=['POST'])
@@ -69,6 +71,7 @@ def generate_names():
 
     # Validate input
     if 'description' not in data or not data['description'].strip():
+        logging.error("The 'description' field is missing or empty.")
         return jsonify({'error': "The 'description' field is missing or empty. Please provide a valid description."}), 400
 
     description = data.get('description')
@@ -77,6 +80,7 @@ def generate_names():
     names, error = generate_company_names(description)
 
     if error:
+        logging.error(f"Error generating names: {error}")
         return jsonify({'error': error, 'suggestion': 'Please verify your input and API key, or try again later.'}), 500
 
     return jsonify({'names': names})
@@ -87,6 +91,7 @@ def check_domain():
 
     # Validate input
     if 'name' not in data or 'tld' not in data:
+        logging.error("Both 'name' and 'tld' fields are required to check a domain.")
         return jsonify({'error': "Both 'name' and 'tld' fields are required to check a domain."}), 400
 
     name = data.get('name')
@@ -97,6 +102,7 @@ def check_domain():
     status = check_whois(domain)
 
     if status == 'Error':
+        logging.error(f"Error checking domain {domain}")
         return jsonify({'error': f"Error checking domain {domain}. This could be due to WHOIS server rate limiting or an invalid domain. Please try again later."}), 500
 
     return jsonify({'domain': domain, 'status': status})
