@@ -40,7 +40,7 @@ def generate_company_names(description):
     """
 
     try:
-        # Call the OpenAI API
+        # Call the OpenAI API with the properly formatted prompt
         response = openai.Completion.create(
             engine="text-davinci-003",  # Use GPT-4 or Davinci model
             prompt=prompt,
