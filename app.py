@@ -1,16 +1,21 @@
 import openai
 from flask import Flask, request, jsonify
+import whois
 import time
 import os
 
-# Initialize the Flask app
 app = Flask(__name__)
 
-# Set your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY")
+# Set your OpenAI API key from environment variables
+openai_api_key = os.getenv("OPENAI_API_KEY")
+
+if openai_api_key:
+    openai.api_key = openai_api_key
+else:
+    raise ValueError("OPENAI_API_KEY is not set in environment variables.")
 
 # List of TLDs to check
-tlds = ['.com', '.org', '.net', '.io', '.info', '.biz', '.co', '.us', '.uk', '.me']
+tlds = ['.com', '.org', '.net', '.io']
 
 def check_whois(domain):
     try:
@@ -38,30 +43,33 @@ def generate_company_names(description):
         )
         # Extract the generated Python list from the response
         generated_text = response.choices[0].text.strip()
-        # Execute the generated code to convert it into a Python list
         exec(generated_text, globals())
         return names  # Return the generated list of names
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return []
 
-@app.route('/check_domains', methods=['POST'])
-def check_domains():
+@app.route('/generate_names', methods=['POST'])
+def generate_names():
     data = request.get_json()
     description = data.get('description')
 
     # Generate company names using GPT-4
-    domain_ideas = generate_company_names(description)
+    names = generate_company_names(description)
 
-    results = []
-    for name in domain_ideas:
-        for tld in tlds:
-            domain = f"{name}{tld}"
-            status = check_whois(domain)
-            results.append({'domain': domain, 'status': status})
-            time.sleep(1)  # Respect WHOIS server rate limits
+    return jsonify({'names': names})
 
-    return jsonify({'results': results})
+@app.route('/check_domain', methods=['POST'])
+def check_domain():
+    data = request.get_json()
+    name = data.get('name')
+    tld = data.get('tld')
+    domain = f"{name}{tld}"
+
+    # Check the WHOIS record for the domain
+    status = check_whois(domain)
+
+    return jsonify({'domain': domain, 'status': status})
 
 if __name__ == '__main__':
     app.run(debug=True)
