@@ -23,8 +23,9 @@ def check_whois(domain):
         domain_info = whois.whois(domain)
         if domain_info['domain_name']:
             return 'Registered'
-    except:
-        return 'Available'
+    except Exception as e:
+        print(f"Error checking WHOIS for {domain}: {e}")
+        return 'Error'
     return 'Available'
 
 def generate_company_names(description):
@@ -47,7 +48,7 @@ def generate_company_names(description):
         return names  # Return the generated list of names
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
-        return []
+        return None, f"Error generating names: {e}"
 
 @app.route('/generate_names', methods=['POST'])
 def generate_names():
@@ -55,7 +56,10 @@ def generate_names():
     description = data.get('description')
 
     # Generate company names using GPT-4
-    names = generate_company_names(description)
+    names, error = generate_company_names(description)
+
+    if error:
+        return jsonify({'error': error}), 500
 
     return jsonify({'names': names})
 
@@ -68,6 +72,9 @@ def check_domain():
 
     # Check the WHOIS record for the domain
     status = check_whois(domain)
+
+    if status == 'Error':
+        return jsonify({'error': f"Error checking domain {domain}"}), 500
 
     return jsonify({'domain': domain, 'status': status})
 
