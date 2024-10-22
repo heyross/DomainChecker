@@ -1,7 +1,6 @@
 import openai
 from flask import Flask, request, jsonify
 import whois
-import time
 import os
 
 app = Flask(__name__)
@@ -12,7 +11,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if openai_api_key:
     openai.api_key = openai_api_key
 else:
-    raise ValueError("OPENAI_API_KEY is not set in environment variables.")
+    raise ValueError("OPENAI_API_KEY is not set in environment variables. Please set it correctly before running the app.")
 
 # List of TLDs to check
 tlds = ['.com', '.org', '.net', '.io']
@@ -24,6 +23,7 @@ def check_whois(domain):
         if domain_info['domain_name']:
             return 'Registered'
     except Exception as e:
+        # Handle WHOIS exceptions
         print(f"Error checking WHOIS for {domain}: {e}")
         return 'Error'
     return 'Available'
@@ -46,26 +46,49 @@ def generate_company_names(description):
         generated_text = response.choices[0].text.strip()
         exec(generated_text, globals())
         return names  # Return the generated list of names
+    except openai.error.InvalidRequestError as e:
+        # Handle invalid request errors from OpenAI
+        print(f"OpenAI API Invalid Request Error: {e}")
+        return None, "There was an issue with the OpenAI request. Please check the prompt and ensure it is correctly formatted."
+    except openai.error.AuthenticationError as e:
+        # Handle authentication errors from OpenAI
+        print(f"OpenAI API Authentication Error: {e}")
+        return None, "Authentication with the OpenAI API failed. Please ensure that the OpenAI API key is correctly set and valid."
+    except openai.error.RateLimitError as e:
+        # Handle rate limit errors from OpenAI
+        print(f"OpenAI API Rate Limit Error: {e}")
+        return None, "The OpenAI API rate limit has been exceeded. Please try again later or reduce the frequency of requests."
     except Exception as e:
-        print(f"Error in OpenAI API call: {e}")
-        return None, f"Error generating names: {e}"
+        # Handle any other exceptions
+        print(f"General Error in OpenAI API call: {e}")
+        return None, "An unexpected error occurred when calling the OpenAI API. Please try again later or contact support."
 
 @app.route('/generate_names', methods=['POST'])
 def generate_names():
     data = request.get_json()
+
+    # Validate input
+    if 'description' not in data or not data['description'].strip():
+        return jsonify({'error': "The 'description' field is missing or empty. Please provide a valid description."}), 400
+
     description = data.get('description')
 
     # Generate company names using GPT-4
     names, error = generate_company_names(description)
 
     if error:
-        return jsonify({'error': error}), 500
+        return jsonify({'error': error, 'suggestion': 'Please verify your input and API key, or try again later.'}), 500
 
     return jsonify({'names': names})
 
 @app.route('/check_domain', methods=['POST'])
 def check_domain():
     data = request.get_json()
+
+    # Validate input
+    if 'name' not in data or 'tld' not in data:
+        return jsonify({'error': "Both 'name' and 'tld' fields are required to check a domain."}), 400
+
     name = data.get('name')
     tld = data.get('tld')
     domain = f"{name}{tld}"
@@ -74,7 +97,7 @@ def check_domain():
     status = check_whois(domain)
 
     if status == 'Error':
-        return jsonify({'error': f"Error checking domain {domain}"}), 500
+        return jsonify({'error': f"Error checking domain {domain}. This could be due to WHOIS server rate limiting or an invalid domain. Please try again later."}), 500
 
     return jsonify({'domain': domain, 'status': status})
 
