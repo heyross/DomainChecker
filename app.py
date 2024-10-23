@@ -3,11 +3,17 @@ from flask import Flask, request, jsonify
 import whois
 import os
 import logging
+import requests
+response = requests.get('http://remote-api-service:5000/api/resource')
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
+
+# Run all interfaces on port 5000
+
+app.run(host='0.0.0.0', port=5000)
 
 # Set your OpenAI API key from environment variables
 openai_api_key = os.getenv("OPENAI_API_KEY")
