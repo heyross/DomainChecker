@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DomainChecker</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/main.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>DomainChecker</h1>
+        <div class="form-container">
+            <form id="generate-form">
+                <label for="description">Enter a description to generate company names:</label>
+                <input type="text" id="description" name="description" required>
+                <button type="submit">Generate Names</button>
+            </form>
+            <form id="check-form">
+                <label for="domain">Enter a domain to check availability:</label>
+                <input type="text" id="domain" name="domain" required>
+                <button type="submit">Check Domain</button>
+            </form>
+        </div>
+        <div id="results"></div>
+    </div>
+</body>
+</html>
